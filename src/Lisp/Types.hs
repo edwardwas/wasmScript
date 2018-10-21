@@ -11,8 +11,8 @@ import           Types.Builtins
 import           Types.SExpr
 
 data LispType
-    = F64T
-    | I64T
+    = FloatT
+    | IntegerT
     | SymbolT
     | BoolT
     | NilT
@@ -22,12 +22,13 @@ data LispType
     deriving (Eq, Show, Ord)
 
 typeOfAtom :: Atom -> LispType
-typeOfAtom (F64A _)   = F64T
+typeOfAtom (FloatA _) = FloatT
 typeOfAtom (Symbol _) = SymbolT
 typeOfAtom (BoolA _)  = BoolT
 typeOfAtom (SNil)     = NilT
 
-numberT = UnionT [F64T, I64T]
+numberT :: LispType
+numberT = UnionT [FloatT , IntegerT]
 
 instance Semigroup LispType where
     UnionT s1 <> UnionT s2 = UnionT (S.union s1 s2)
@@ -45,5 +46,6 @@ builtinTypes :: Builtin LispType
 builtinTypes =
     Builtin
         { addition = FunctionT numberT $ FunctionT numberT numberT
-        , equality = FunctionT F64T $ FunctionT F64T BoolT
+        , equality = FunctionT FloatT $ FunctionT FloatT BoolT
+        , coerceToFloat = FunctionT numberT FloatT
         }

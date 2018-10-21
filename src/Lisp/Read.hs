@@ -39,7 +39,7 @@ parseSymbol =
         t <- many (oneOf symbolOtherChars)
         return $ Symbol $ T.pack (h : t)
 
-parseTypeIdent = lexer $ choice $ map try [F64T <$ "f64", BoolT <$ "bool"]
+parseTypeIdent = lexer $ choice $ map try [FloatT <$ "f64", BoolT <$ "bool"]
 
 parseAtom :: Parser Atom
 parseAtom =
@@ -48,8 +48,8 @@ parseAtom =
     map try
         [ BoolA True <$ "True"
         , BoolA False <$ "False"
-        , F64A <$> L.float
-        , F64A . fromIntegral <$> (L.decimal :: Parser Integer)
+        , FloatA <$> L.float
+        , FloatA . fromIntegral <$> (L.decimal :: Parser Integer)
         , parseSymbol
         ]
 

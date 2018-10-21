@@ -5,7 +5,7 @@ module Types.SExpr where
 import           Data.Text (Text)
 
 data Atom
-    = F64A Double
+    = FloatA Double
     | Symbol Text
     | BoolA Bool
     | SNil

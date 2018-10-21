@@ -19,16 +19,16 @@ type LispEvalFunc = forall m . (MonadState LispState m, MonadError EvalError m) 
       [SExpr] -> m SExpr
 
 addition :: LispEvalFunc
-addition = fmap (Atom . F64A . sum) . traverse (sexprAsType SF64T)
+addition = fmap (Atom . FloatA . sum) . traverse (sexprAsType SFloatT)
 
 multiplication :: LispEvalFunc
-multiplication = fmap (Atom . F64A . product) . traverse (sexprAsType SF64T)
+multiplication = fmap (Atom . FloatA . product) . traverse (sexprAsType SFloatT)
 
 negation :: LispEvalFunc
-negation [] = pure $ Atom $ F64A 0
+negation [] = pure $ Atom $ FloatA 0
 negation inputs = do
-  a:as <- traverse (sexprAsType SF64T) inputs
-  return $ Atom $ F64A (a - sum as)
+  a:as <- traverse (sexprAsType SFloatT) inputs
+  return $ Atom $ FloatA (a - sum as)
 
 equality :: [Double] -> SExpr
 equality as = Atom $ BoolA $ isJust $ allEq as
@@ -55,7 +55,7 @@ evalLisp (SFunction name args) =
         "+" -> traverse evalLisp (expandConsCells args) >>= addition
         "-" -> traverse evalLisp (expandConsCells args) >>= negation
         "*" -> traverse evalLisp (expandConsCells args) >>= multiplication
-        "=" -> equality <$> traverse (sexprAsType SF64T <=< evalLisp) (expandConsCells args)
+        "=" -> equality <$> traverse (sexprAsType SFloatT <=< evalLisp) (expandConsCells args)
         "cond" -> condition $ expandConsCells args
         "defn" -> defineFunction $ expandConsCells args
         other -> do

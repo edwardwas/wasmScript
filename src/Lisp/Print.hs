@@ -12,7 +12,7 @@ import           Data.Text      (Text)
 import qualified Data.Text      as T
 
 printAtom :: Atom -> Text
-printAtom (F64A n)      = tShow n
+printAtom (FloatA n)    = tShow n
 printAtom (Symbol t)    = t
 printAtom (BoolA True)  = "True"
 printAtom (BoolA False) = "False"
@@ -25,8 +25,8 @@ printSExpr (Cons a b) =
     ")"
 
 printType :: LispType -> Text
-printType F64T            = "f64"
-printType I64T            = "i64"
+printType FloatT          = "f64"
+printType IntegerT        = "i64"
 printType SymbolT         = "Symbol"
 printType BoolT           = "Bool"
 printType NilT            = "()"

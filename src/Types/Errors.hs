@@ -25,7 +25,7 @@ data EvalError
     deriving (Eq, Show)
 
 data SLispType (t :: LispType) where
-  SF64T :: SLispType 'F64T
+  SFloatT :: SLispType 'FloatT
   SSymbolT :: SLispType 'SymbolT
   SBoolT :: SLispType 'BoolT
   SNilT :: SLispType 'NilT
@@ -35,11 +35,11 @@ class AsLispType t where
     singLispType :: SLispType t
     sexprAsType :: MonadError EvalError m => proxy t -> SExpr -> m (HaskellType t)
 
-instance AsLispType 'F64T where
-  type HaskellType 'F64T = Double
-  singLispType = SF64T
-  sexprAsType _ (Atom (F64A x)) = pure x
-  sexprAsType _ s               = throwError $ CannotGetAsType F64T s
+instance AsLispType 'FloatT where
+  type HaskellType 'FloatT = Double
+  singLispType = SFloatT
+  sexprAsType _ (Atom (FloatA x)) = pure x
+  sexprAsType _ s                 = throwError $ CannotGetAsType FloatT s
 
 instance AsLispType 'SymbolT where
   type HaskellType 'SymbolT = Text

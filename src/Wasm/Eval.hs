@@ -69,7 +69,7 @@ evalWasm (SFunction name args) = case name of
   _ -> do
       pushToStack <- traverse evalWasm $ expandConsCells args
       return $ (T.unlines pushToStack) <> "\ncall $" <> name
-evalWasm (Atom (F64A n)) = pure ("f64.const " <> tShow n)
+evalWasm (Atom (FloatA n)) = pure ("f64.const " <> tShow n)
 evalWasm (Atom (Symbol n)) = pure $ "get_local $" <> n
 evalWasm (Atom (BoolA True)) = pure ("i32.const 1")
 evalWasm (Atom (BoolA False)) = pure ("i32.const 0")
