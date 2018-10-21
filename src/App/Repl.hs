@@ -7,7 +7,8 @@ module App.Repl where
 import           Lisp.Eval
 import           Lisp.Print
 import           Lisp.Read
-import           Types
+import           Types.Errors
+import           Types.State
 
 import           Control.Monad.Except
 import           Control.Monad.State

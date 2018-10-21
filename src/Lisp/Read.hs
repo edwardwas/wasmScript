@@ -5,7 +5,9 @@ module Lisp.Read
     ( loadSExpr
     ) where
 
-import           Types
+import           Lisp.Types
+import           Types.Errors
+import           Types.SExpr
 
 import           Control.Monad.Except
 import           Data.Bifunctor             (first)
@@ -36,6 +38,8 @@ parseSymbol =
         h <- oneOf symbolHeadChars
         t <- many (oneOf symbolOtherChars)
         return $ Symbol $ T.pack (h : t)
+
+parseTypeIdent = lexer $ choice $ map try [F64T <$ "f64", BoolT <$ "bool"]
 
 parseAtom :: Parser Atom
 parseAtom =

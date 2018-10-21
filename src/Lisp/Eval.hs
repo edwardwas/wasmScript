@@ -4,7 +4,9 @@
 
 module Lisp.Eval where
 
-import           Types
+import           Types.Errors
+import           Types.SExpr
+import           Types.State
 import           Util
 
 import           Control.Lens

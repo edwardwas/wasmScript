@@ -17,9 +17,13 @@ cabal-version:       >=1.10
 
 executable wasmScript
   main-is:             Main.hs
-  other-modules: Types
+  other-modules: 
+      Types.Errors
+    , Types.State
+    , Types.SExpr
     , Lisp.Print
     , Lisp.Read
+    , Lisp.Types
     , Wasm.Eval
     , Lisp.Eval
     , Lisp.TypeCheck

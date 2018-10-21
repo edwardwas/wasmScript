@@ -2,10 +2,12 @@
 
 module Lisp.Print where
 
-import           Types
+import           Lisp.Types
+import           Types.SExpr
+import           Util
 
-import           Data.Text (Text)
-import qualified Data.Text as T
+import           Data.Text   (Text)
+import qualified Data.Text   as T
 
 printAtom :: Atom -> Text
 printAtom (F64A n)      = tShow n
@@ -25,5 +27,4 @@ printType F64T            = "f64"
 printType SymbolT         = "Symbol"
 printType BoolT           = "Bool"
 printType NilT            = "()"
-printType (PairT a b)     = "(" <> printType a <> "," <> printType b <> ")"
 printType (FunctionT a b) = printType a <> " -> " <> printType b

@@ -5,7 +5,8 @@
 module App.Compile where
 
 import           Lisp.Read
-import           Types
+import           Types.Errors
+import           Types.SExpr
 import           Wasm.Eval
 
 import           Control.Monad.Except

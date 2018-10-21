@@ -6,7 +6,9 @@ module App.Eval where
 import           Lisp.Eval
 import           Lisp.Print
 import           Lisp.Read
-import           Types
+import           Lisp.Types
+import           Types.Errors
+import           Types.State
 
 import           Control.Monad.Except
 import           Control.Monad.State

@@ -4,7 +4,8 @@
 
 module Wasm.Eval where
 
-import           Types
+import           Types.Errors
+import           Types.SExpr
 import           Util
 
 import           Control.Monad.Except
