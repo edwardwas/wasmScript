@@ -32,6 +32,7 @@ data LispType
     | BoolT
     | NilT
     | PairT LispType LispType
+    | FunctionT LispType LispType
     deriving (Eq, Show)
 
 data SLispType (t :: LispType) where
@@ -93,7 +94,9 @@ data EvalError
     | CouldNotFindFunction Text
     | CouldNotFindVal Text
     | CannotGetAsType LispType SExpr
+    | TypeMismatch LispType LispType
     | UnknownTypeError
+    | ArityMismatch
     deriving (Eq, Show)
 
 data LispFunction = LispFunction Bool [T.Text] SExpr

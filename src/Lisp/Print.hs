@@ -19,3 +19,11 @@ printSExpr (Atom a) = printAtom a
 printSExpr (Cons a b) =
     "(" <> T.init (T.intercalate " " (map printSExpr $ expandConsCells $ Cons a b)) <>
     ")"
+
+printType :: LispType -> Text
+printType F64T            = "f64"
+printType SymbolT         = "Symbol"
+printType BoolT           = "Bool"
+printType NilT            = "()"
+printType (PairT a b)     = "(" <> printType a <> "," <> printType b <> ")"
+printType (FunctionT a b) = printType a <> " -> " <> printType b
