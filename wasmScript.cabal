@@ -21,6 +21,7 @@ executable wasmScript
       Types.Errors
     , Types.State
     , Types.SExpr
+    , Types.Builtins
     , Lisp.Print
     , Lisp.Read
     , Lisp.Types

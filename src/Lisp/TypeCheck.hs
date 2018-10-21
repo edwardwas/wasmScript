@@ -6,6 +6,7 @@ module Lisp.TypeCheck where
 import           Lisp.Print           (printType)
 import           Lisp.Read
 import           Lisp.Types
+import           Types.Builtins
 import           Types.Errors
 import           Types.SExpr
 import           Types.State
@@ -15,67 +16,36 @@ import           Control.Monad.Except
 import           Control.Monad.State
 import           Data.Map             (Map)
 import qualified Data.Map             as M
+import qualified Data.Set             as S
 import           Data.Text            (Text)
 import qualified Data.Text            as T
+
+promoteIfSubType :: LispType -> LispType -> Bool
+promoteIfSubType a (UnionT as) = a `S.member` as
+promoteIfSubType a b           = a == b
 
 throwErrorIf :: MonadError e m => (a -> Bool) -> (a -> e) -> a -> m a
 throwErrorIf predicate errFunc a
     | predicate a = throwError $ errFunc a
     | otherwise = pure a
 
-numericFunction ::
-       (MonadState LispTypeCheckState  m, MonadError EvalError m)
-    => SExpr
-    -> m LispType
-numericFunction args = do
-    traverse typecheckLisp (expandConsCells args) >>=
-        mapM_ (throwErrorIf (/= F64T) (TypeMismatch F64T))
-    return F64T
+applyFunctionType ::
+       MonadError EvalError m => LispType -> LispType -> m LispType
+applyFunctionType (FunctionT a b) c
+    | promoteIfSubType c a = pure b
+    | otherwise = throwError $ TypeMismatch a c
+applyFunctionType _ _ = throwError ArityMismatch
 
 typecheckLisp ::
        (MonadState LispTypeCheckState m, MonadError EvalError m)
     => SExpr
     -> m LispType
 typecheckLisp (SFunction name args) =
-    case name of
-        "+" -> numericFunction args
-        "-" -> numericFunction args
-        "*" -> numericFunction args
-        "cond" -> condHelper $ expandConsCells args
-        "defn" ->
-            case expandConsCells args of
-                [Atom (Symbol _), toReplace, body] -> undefined
-                _ -> throwError ArityMismatch
-        _ -> undefined
-typecheckLisp (Atom (F64A _)) = pure F64T
-typecheckLisp (Atom (Symbol s)) = do
-    mType <- preuse (lispTypeVals . traverse . ix s)
-    case mType of
-        Just t  -> return t
-        Nothing -> throwError $ CouldNotFindVal s
-typecheckLisp (Atom (BoolA _)) = pure BoolT
-typecheckLisp (Atom SNil) = pure NilT
-typecheckLisp _other = undefined
-
-condHelper ::
-       (MonadState LispTypeCheckState m, MonadError EvalError m)
-    => [SExpr]
-    -> m LispType
-condHelper [a] = do
-    [checkT, valT] <-
-        traverse typecheckLisp (expandConsCells a) >>=
-        throwErrorIf ((/= 2) . length) (const ArityMismatch)
-    unless (checkT == BoolT) $ throwError $ TypeMismatch BoolT checkT
-    return valT
-condHelper (a:as) = do
-    [checkT, valT] <-
-        traverse typecheckLisp (expandConsCells a) >>=
-        throwErrorIf ((/= 2) . length) (const ArityMismatch)
-    unless (checkT == BoolT) $ throwError $ TypeMismatch BoolT checkT
-    otherT <- condHelper as
-    unless (otherT == valT) $ throwError $ TypeMismatch otherT valT
-    return otherT
-condHelper [] = throwError ArityMismatch
+    case builtinAccess builtinTypes name of
+        Just funcType ->
+            traverse typecheckLisp (expandConsCells args) >>=
+            foldM applyFunctionType funcType
+typecheckLisp (Atom a) = pure $ typeOfAtom a
 
 typecheckText :: Text -> Either EvalError [Text]
 typecheckText t =
