@@ -25,17 +25,3 @@ instance Semigroup LispState where
 instance Monoid LispState where
   mappend = (<>)
   mempty = LispState mempty mempty
-
-data LispTypeCheckState = LispTypeCheckState
-    { _lispTypeFunctions :: M.Map T.Text LispType
-    , _lispTypeVals      :: [M.Map T.Text LispType]
-    } deriving (Eq,Show)
-makeLenses ''LispTypeCheckState
-
-instance Semigroup LispTypeCheckState where
-    LispTypeCheckState f1 v1 <> LispTypeCheckState f2 v2 =
-        LispTypeCheckState (f1 <> f2) (v1 <> v2)
-
-instance Monoid LispTypeCheckState where
-  mappend = (<>)
-  mempty = LispTypeCheckState mempty mempty

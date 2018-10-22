@@ -1,51 +1,102 @@
-{-# LANGUAGE DataKinds        #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE OverloadedLists  #-}
-{-# LANGUAGE TypeFamilies     #-}
+{-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE OverloadedLists   #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE TypeFamilies      #-}
 
 module Lisp.Types where
 
-import           Data.Set       (Set)
-import qualified Data.Set       as S
 import           Types.Builtins
 import           Types.SExpr
 
-data LispType
-    = FloatT
-    | IntegerT
-    | SymbolT
-    | BoolT
-    | NilT
-    | UnionT (Set LispType)
-    | ListOfT LispType
-    | FunctionT LispType LispType
-    deriving (Eq, Show, Ord)
+import           Control.Applicative
+import           Control.Lens             hiding (Context)
+import           Control.Monad.Except
+import           Control.Monad.Reader
+import           Control.Monad.State
+import           Data.Functor.Foldable
+import           Data.Functor.Foldable.TH
+import           Data.Map                 (Map)
+import qualified Data.Map                 as M
+import           Data.Maybe
+import           Data.Set                 (Set)
+import qualified Data.Set                 as S
+import           Data.Text                (Text)
+import qualified Data.Text                as T
 
-typeOfAtom :: Atom -> LispType
+data AtomType = FloatT | IntegerT | BoolT | SymbolT | NilT
+  deriving (Eq,Show,Ord)
+
+typeOfAtom :: Atom -> AtomType
 typeOfAtom (FloatA _) = FloatT
 typeOfAtom (Symbol _) = SymbolT
 typeOfAtom (BoolA _)  = BoolT
 typeOfAtom (SNil)     = NilT
 
-numberT :: LispType
-numberT = UnionT [FloatT , IntegerT]
+allIdents :: [Text]
+allIdents =
+  let letters = ['a' .. 'z']
+      helper = map pure letters ++ concatMap (\c -> map (c:) helper) letters
+  in map (mappend "_" . T.pack) helper
 
-instance Semigroup LispType where
-    UnionT s1 <> UnionT s2 = UnionT (S.union s1 s2)
-    a <> UnionT s = UnionT $ S.insert a s
-    UnionT s <> a = UnionT $ S.insert a s
-    a <> b
-        | a == b = a
-        | otherwise = UnionT $ S.fromList [a, b]
+class Monad m => MonadFreshIdent m where
+  freshIdent :: m TypeVariable
 
-functionTypeFromList :: [LispType] -> LispType
-functionTypeFromList [a]    = a
-functionTypeFromList (a:as) = FunctionT a $ functionTypeFromList as
+type TypeVariable = Text
 
-builtinTypes :: Builtin LispType
-builtinTypes =
-    Builtin
-        { addition = FunctionT numberT $ FunctionT numberT numberT
-        , equality = FunctionT FloatT $ FunctionT FloatT BoolT
-        , coerceToFloat = FunctionT numberT FloatT
-        }
+data Type
+  = TVar TypeVariable
+  | TAtom AtomType
+  | TFuncCreate Type
+                Type
+  | TFuncApp Type
+             Type
+  deriving (Eq, Show, Ord)
+makeBaseFunctor ''Type
+
+data TypeScheme =
+  TypeScheme (Set TypeVariable)
+             Type
+  deriving (Eq, Show, Ord)
+
+data TypeConstraint = TCEquality Type Type
+
+type Substition = Map TypeVariable Type
+type Environment = Map TypeVariable TypeScheme
+
+removeTypeFromEnvironemnt :: TypeVariable -> Environment -> Environment
+removeTypeFromEnvironemnt = M.delete
+
+freeTypeVars :: Type -> Set TypeVariable
+freeTypeVars =
+  let helper (TVarF t)          = S.singleton t
+      helper (TAtomF _)         = S.empty
+      helper (TFuncAppF a b)    = a `S.union` b
+      helper (TFuncCreateF a b) = a `S.union` b
+  in cata helper
+
+freeTypeVarsScheme :: TypeScheme -> Set TypeVariable
+freeTypeVarsScheme (TypeScheme s t) = freeTypeVars t S.\\ s
+
+generalise :: Environment -> Type -> TypeScheme
+generalise env ty = TypeScheme (freeTypeVars ty S.\\ foldMap freeTypeVarsScheme env) ty
+
+applySubstition :: Substition -> Type -> Type
+applySubstition m =
+  let helper (TVarF x) = fromMaybe (TVar x) $ M.lookup x m
+      helper t         = embed t
+  in cata helper
+
+instantiate :: MonadFreshIdent m => TypeScheme -> m Type
+instantiate (TypeScheme as t) =
+  (\as' -> applySubstition (M.fromList as') t) <$>
+  mapM (\a -> (a, ) . TVar <$> freshIdent) (S.toList as)
+
+numTy = TAtom FloatT
+idTy = TFuncCreate (TVar "a") (TVar "a")
+exampleTy = TFuncApp idTy numTy
+

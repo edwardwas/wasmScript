@@ -24,11 +24,9 @@ printSExpr (Cons a b) =
     "(" <> T.init (T.intercalate " " (map printSExpr $ expandConsCells $ Cons a b)) <>
     ")"
 
-printType :: LispType -> Text
-printType FloatT          = "f64"
-printType IntegerT        = "i64"
-printType SymbolT         = "Symbol"
-printType BoolT           = "Bool"
-printType NilT            = "()"
-printType (UnionT s)      = T.intercalate " U " (printType <$> S.toList s)
-printType (FunctionT a b) = printType a <> " -> " <> printType b
+printType :: AtomType -> Text
+printType FloatT   = "f64"
+printType IntegerT = "i64"
+printType SymbolT  = "Symbol"
+printType BoolT    = "Bool"
+printType NilT     = "()"

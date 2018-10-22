@@ -18,43 +18,43 @@ data EvalError
     = ParseError (ParseError Char Void)
     | CouldNotFindFunction Text
     | CouldNotFindVal Text
-    | CannotGetAsType LispType SExpr
-    | TypeMismatch LispType LispType
+    | CannotGetAsType AtomType SExpr
+    | TypeMismatch AtomType AtomType
     | UnknownTypeError
     | ArityMismatch
     deriving (Eq, Show)
 
-data SLispType (t :: LispType) where
-  SFloatT :: SLispType 'FloatT
-  SSymbolT :: SLispType 'SymbolT
-  SBoolT :: SLispType 'BoolT
-  SNilT :: SLispType 'NilT
+data SAtomType (t :: AtomType) where
+  SFloatT :: SAtomType 'FloatT
+  SSymbolT :: SAtomType 'SymbolT
+  SBoolT :: SAtomType 'BoolT
+  SNilT :: SAtomType 'NilT
 
-class AsLispType t where
+class AsAtomType t where
     type family HaskellType t :: *
-    singLispType :: SLispType t
+    singAtomType :: SAtomType t
     sexprAsType :: MonadError EvalError m => proxy t -> SExpr -> m (HaskellType t)
 
-instance AsLispType 'FloatT where
+instance AsAtomType 'FloatT where
   type HaskellType 'FloatT = Double
-  singLispType = SFloatT
+  singAtomType = SFloatT
   sexprAsType _ (Atom (FloatA x)) = pure x
   sexprAsType _ s                 = throwError $ CannotGetAsType FloatT s
 
-instance AsLispType 'SymbolT where
+instance AsAtomType 'SymbolT where
   type HaskellType 'SymbolT = Text
-  singLispType = SSymbolT
+  singAtomType = SSymbolT
   sexprAsType _ (Atom (Symbol x)) = pure x
   sexprAsType _ s                 = throwError $ CannotGetAsType SymbolT s
 
-instance AsLispType 'BoolT where
+instance AsAtomType 'BoolT where
   type HaskellType 'BoolT = Bool
-  singLispType = SBoolT
+  singAtomType = SBoolT
   sexprAsType _ (Atom (BoolA x)) = pure x
   sexprAsType _ s                = throwError $ CannotGetAsType BoolT s
 
-instance AsLispType 'NilT where
+instance AsAtomType 'NilT where
   type HaskellType 'NilT = ()
-  singLispType = SNilT
+  singAtomType = SNilT
   sexprAsType _ (Atom SNil) = pure ()
   sexprAsType _ s           = throwError $ CannotGetAsType NilT s
