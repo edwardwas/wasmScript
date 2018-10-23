@@ -83,3 +83,16 @@ So far
 ------
 
 So far there is a simple repl and compile which works as long as you only use f64s. You can define functions and use recursion and cond to do simple maths. More is coming!
+
+Quickstart
+-----------
+
+You need to install node, stack and wat2wasm. Run stack build to build the main application. The main application has a few ways of running. Repl will let you run interactive programs. Eval will evalulate a file in a slow way, using a naive haskell backend. This can be considered a reference implementation, but it is slow. Compile will take a wasmScript file and export it as a wat file, which can be compiles to wasm.
+
+In the examples directory is a program to compute the nth fiboncaci number. To run it as a webassembly file, do the following.
+
+```bash
+stack build
+stack exec wasmScript -- compile -w example/example.wscript
+node run.js
+```
