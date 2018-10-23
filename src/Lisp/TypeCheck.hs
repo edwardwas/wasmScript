@@ -24,7 +24,10 @@ typeOfSExprHelper (SFunction name args) = do
       withExceptT (UnknownTypeError . show) . applyWithArgs t
     Nothing -> undefined
 
-typeOfSExpr :: (MonadReader (Builtin LispType) m, MonadError EvalError m) => SExpr -> m LispType
+typeOfSExpr ::
+     (MonadReader (Builtin LispType) m, MonadError EvalError m)
+  => SExpr
+  -> m LispType
 typeOfSExpr sexpr = do
   et <- runExceptT $ typeOfSExprHelper sexpr
   case et of
