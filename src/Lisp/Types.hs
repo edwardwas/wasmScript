@@ -1,12 +1,13 @@
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE OverloadedLists   #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE TupleSections     #-}
-{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DeriveTraversable          #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedLists            #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TupleSections              #-}
+{-# LANGUAGE TypeFamilies               #-}
 
 module Lisp.Types where
 
@@ -51,11 +52,8 @@ type TypeVariable = Text
 data Type
   = TVar TypeVariable
   | TAtom AtomType
-  | TFuncCreate Type
-                Type
-  | TFuncApp Type
-             Type
-  deriving (Eq, Show, Ord)
+  | TFunction Type Type
+    deriving (Eq,Show,Ord)
 makeBaseFunctor ''Type
 
 data TypeScheme =
@@ -63,40 +61,54 @@ data TypeScheme =
              Type
   deriving (Eq, Show, Ord)
 
-data TypeConstraint = TCEquality Type Type
-
 type Substition = Map TypeVariable Type
-type Environment = Map TypeVariable TypeScheme
 
-removeTypeFromEnvironemnt :: TypeVariable -> Environment -> Environment
-removeTypeFromEnvironemnt = M.delete
+newtype Environment = Environment (Map TypeVariable TypeScheme)
+  deriving (Eq,Show,Semigroup,Monoid)
 
-freeTypeVars :: Type -> Set TypeVariable
-freeTypeVars =
-  let helper (TVarF t)          = S.singleton t
-      helper (TAtomF _)         = S.empty
-      helper (TFuncAppF a b)    = a `S.union` b
-      helper (TFuncCreateF a b) = a `S.union` b
-  in cata helper
+class Substitutable s where
+    freeTypes :: s -> Set TypeVariable
+    applySub :: Substition -> s -> s
 
-freeTypeVarsScheme :: TypeScheme -> Set TypeVariable
-freeTypeVarsScheme (TypeScheme s t) = freeTypeVars t S.\\ s
+instance Substitutable Type where
+    freeTypes (TVar t)        = S.singleton t
+    freeTypes (TAtom _)       = S.empty
+    freeTypes (TFunction a b) = S.union (freeTypes a) (freeTypes b)
+    applySub s (TVar t)        = fromMaybe (TVar t) (M.lookup t s)
+    applySub _ (TAtom a)       = TAtom a
+    applySub s (TFunction a b) = TFunction (applySub s a) (applySub s b)
+
+instance Substitutable TypeScheme where
+    freeTypes (TypeScheme as t) = freeTypes t S.\\ as
+    applySub s (TypeScheme as t) = TypeScheme as $ applySub (foldr M.delete s as) t
+
+instance Substitutable Environment where
+    freeTypes (Environment m) = foldMap freeTypes m
+    applySub s (Environment m) = Environment (applySub s <$> m)
+
+removeFromEnvironment :: TypeVariable -> Environment -> Environment
+removeFromEnvironment x (Environment m) = Environment $ M.delete x m
 
 generalise :: Environment -> Type -> TypeScheme
-generalise env ty = TypeScheme (freeTypeVars ty S.\\ foldMap freeTypeVarsScheme env) ty
-
-applySubstition :: Substition -> Type -> Type
-applySubstition m =
-  let helper (TVarF x) = fromMaybe (TVar x) $ M.lookup x m
-      helper t         = embed t
-  in cata helper
+generalise e t = TypeScheme (freeTypes t S.\\ freeTypes e) t
 
 instantiate :: MonadFreshIdent m => TypeScheme -> m Type
 instantiate (TypeScheme as t) =
-  (\as' -> applySubstition (M.fromList as') t) <$>
-  mapM (\a -> (a, ) . TVar <$> freshIdent) (S.toList as)
+    (\as' -> applySub (M.fromList as') t) <$>
+    mapM (\a -> (a, ) . TVar <$> freshIdent) (S.toList as)
 
-numTy = TAtom FloatT
-idTy = TFuncCreate (TVar "a") (TVar "a")
-exampleTy = TFuncApp idTy numTy
+unification =
+    let isVar (TVar _) = True
+        isVar _        = False
+        rule1 = map (\(t,x) -> if isVar t then (x,t) else (t,x))
+        rule2 :: [(Type,Type)] -> [(Type,Type)]
+        rule2 = filter (uncurry (/=))
+     in undefined
 
+data TypeExpresion
+    = Type Type
+    | TEApp TypeExpresion
+            TypeExpresion
+    | TELambda TypeExpresion
+               TypeExpresion
+      deriving (Eq,Show)
