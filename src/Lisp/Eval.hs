@@ -1,9 +1,13 @@
 {-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE OverloadedLists   #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
 
 module Lisp.Eval where
 
+import           Lisp.TypeCheck
+import           Lisp.Types
+import           Types.Builtins
 import           Types.Errors
 import           Types.SExpr
 import           Types.State
@@ -18,64 +22,33 @@ import           Data.Maybe           (isJust)
 type LispEvalFunc = forall m . (MonadState LispState m, MonadError EvalError m) =>
       [SExpr] -> m SExpr
 
-addition :: LispEvalFunc
-addition = fmap (Atom . FloatA . sum) . traverse (sexprAsType SFloatT)
-
-multiplication :: LispEvalFunc
-multiplication = fmap (Atom . FloatA . product) . traverse (sexprAsType SFloatT)
-
-negation :: LispEvalFunc
-negation [] = pure $ Atom $ FloatA 0
-negation inputs = do
-  a:as <- traverse (sexprAsType SFloatT) inputs
-  return $ Atom $ FloatA (a - sum as)
-
-equality :: [Double] -> SExpr
-equality as = Atom $ BoolA $ isJust $ allEq as
-
-defineFunction :: LispEvalFunc
-defineFunction [Atom (Symbol funcName), toReplace, body] = do
-  args <- traverse (sexprAsType SSymbolT) $ expandConsCells toReplace
-  lispFunctions . at funcName .= Just (LispFunction False args body)
-  return $ Atom SNil
-defineFunction other = error $ show other
-
-condition :: LispEvalFunc
-condition (a:as) = do
-    let [check, val] = expandConsCells a
-    shouldDoHere <- evalLisp check >>= (sexprAsType SBoolT)
-    if shouldDoHere
-        then evalLisp val
-        else condition as
-condition [] = error "[]"
+builtinFunctions ::
+     MonadError EvalError m => Builtin (M.Map LispType ([SExpr] -> m SExpr))
+builtinFunctions =
+  Builtin
+  { addition =
+      [ ( FunctionType floatT (FunctionType floatT floatT)
+        , fmap (Atom . FloatA . sum) . traverse (sexprAsType SFloatT))
+      , ( FunctionType integerT (FunctionType integerT integerT)
+        , fmap (Atom . IntegerA . sum) . traverse (sexprAsType SIntegerT))
+      ]
+  , equality =
+      [ ( FunctionType floatT $ FunctionType floatT boolT
+        , fmap (Atom . BoolA . isJust . allEq) . traverse (sexprAsType SFloatT))
+      , ( FunctionType integerT $ FunctionType integerT boolT
+        , fmap (Atom . BoolA . isJust . allEq) .
+          traverse (sexprAsType SIntegerT))
+      , ( FunctionType boolT $ FunctionType boolT boolT
+        , fmap (Atom . BoolA . isJust . allEq) . traverse (sexprAsType SBoolT))
+      ]
+  , coerceToFloat =
+      [ (FunctionType floatT floatT, pure . head)
+      , ( FunctionType integerT floatT
+        , fmap (Atom . FloatA . fromIntegral) . sexprAsType SIntegerT . head)
+      ]
+  }
 
 evalLisp :: (MonadState LispState m, MonadError EvalError m) => SExpr -> m SExpr
-evalLisp (SFunction name args) =
-    case name of
-        "+" -> traverse evalLisp (expandConsCells args) >>= addition
-        "-" -> traverse evalLisp (expandConsCells args) >>= negation
-        "*" -> traverse evalLisp (expandConsCells args) >>= multiplication
-        "=" -> equality <$> traverse (sexprAsType SFloatT <=< evalLisp) (expandConsCells args)
-        "cond" -> condition $ expandConsCells args
-        "defn" -> defineFunction $ expandConsCells args
-        other -> do
-            mLispFunction <- preuse (lispFunctions . ix other)
-            case mLispFunction of
-                Nothing -> throwError $ CouldNotFindFunction other
-                Just (LispFunction isMacro symsToReplace body) -> do
-                    args' <-
-                        if isMacro
-                            then pure (expandConsCells args)
-                            else traverse evalLisp (expandConsCells args)
-                    lispVals %= (M.fromList (zip symsToReplace args') :)
-                    res <- evalLisp body
-                    lispVals %= tail
-                    return res
-evalLisp (Atom (Symbol t)) = do
-  mVal <- gets (\ls -> getLispVal ls t)
-  case mVal of
-    Just v  -> return v
-    Nothing -> throwError $ CouldNotFindVal t
-evalLisp (Atom a) = pure $ Atom a
-evalLisp other = error $ show other
+evalLisp (SFunction name args) = undefined
+evalLisp other                 = error $ show other
 

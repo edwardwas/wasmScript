@@ -14,18 +14,19 @@ import           Data.Text            (Text)
 import           Data.Void
 import           Text.Megaparsec      (ParseError)
 
+
 data EvalError
     = ParseError (ParseError Char Void)
     | CouldNotFindFunction Text
     | CouldNotFindVal Text
     | CannotGetAsType AtomType SExpr
-    | TypeMismatch AtomType AtomType
-    | UnknownTypeError
+    | UnknownTypeError String
     | ArityMismatch
     deriving (Eq, Show)
 
 data SAtomType (t :: AtomType) where
   SFloatT :: SAtomType 'FloatT
+  SIntegerT :: SAtomType 'IntegerT
   SSymbolT :: SAtomType 'SymbolT
   SBoolT :: SAtomType 'BoolT
   SNilT :: SAtomType 'NilT
@@ -40,6 +41,12 @@ instance AsAtomType 'FloatT where
   singAtomType = SFloatT
   sexprAsType _ (Atom (FloatA x)) = pure x
   sexprAsType _ s                 = throwError $ CannotGetAsType FloatT s
+
+instance AsAtomType 'IntegerT where
+  type HaskellType 'IntegerT = Integer
+  singAtomType = SIntegerT
+  sexprAsType _ (Atom (IntegerA a)) = pure a
+  sexprAsType _ s                   = throwError $ CannotGetAsType IntegerT s
 
 instance AsAtomType 'SymbolT where
   type HaskellType 'SymbolT = Text

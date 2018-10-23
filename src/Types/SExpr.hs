@@ -6,6 +6,7 @@ import           Data.Text (Text)
 
 data Atom
     = FloatA Double
+    | IntegerA Integer
     | Symbol Text
     | BoolA Bool
     | SNil
@@ -29,7 +30,6 @@ expandConsCells =
   let expandConsCellsHelper (Cons a b) = a : expandConsCells b
       expandConsCellsHelper s          = [s]
   in filter (/= Atom SNil) . expandConsCellsHelper
-
 
 data LispFunction = LispFunction Bool [Text] SExpr
   deriving (Eq,Show)

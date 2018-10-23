@@ -10,7 +10,7 @@ import qualified Data.Map     as M
 import qualified Data.Text    as T
 
 data LispState = LispState
-    { _lispFunctions :: M.Map T.Text LispFunction
+    { _lispFunctions :: M.Map T.Text (M.Map LispType LispFunction)
     , _lispVals      :: [M.Map T.Text SExpr]
     } deriving (Eq,Show)
 

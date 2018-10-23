@@ -21,6 +21,7 @@ import           Control.Monad.Reader
 import           Control.Monad.State
 import           Data.Functor.Foldable
 import           Data.Functor.Foldable.TH
+import           Data.List.NonEmpty       (NonEmpty)
 import           Data.Map                 (Map)
 import qualified Data.Map                 as M
 import           Data.Maybe
@@ -38,77 +39,49 @@ typeOfAtom (Symbol _) = SymbolT
 typeOfAtom (BoolA _)  = BoolT
 typeOfAtom (SNil)     = NilT
 
-allIdents :: [Text]
-allIdents =
-  let letters = ['a' .. 'z']
-      helper = map pure letters ++ concatMap (\c -> map (c:) helper) letters
-  in map (mappend "_" . T.pack) helper
+data LispType
+  = AtomType AtomType
+  | UnionType LispType
+              LispType
+  | FunctionType LispType LispType
+  | AnyType
+  deriving (Eq, Show,Ord)
 
-class Monad m => MonadFreshIdent m where
-  freshIdent :: m TypeVariable
+unionTypeFromList :: NonEmpty LispType -> LispType
+unionTypeFromList = foldr1 UnionType
 
-type TypeVariable = Text
+floatT = AtomType FloatT
+integerT = AtomType IntegerT
+boolT = AtomType BoolT
 
-data Type
-  = TVar TypeVariable
-  | TAtom AtomType
-  | TFunction Type Type
-    deriving (Eq,Show,Ord)
-makeBaseFunctor ''Type
+data TypeError
+  = CannotUnify LispType
+                LispType
+  | CannotApply LispType
+                LispType
+    deriving (Eq,Show)
 
-data TypeScheme =
-  TypeScheme (Set TypeVariable)
-             Type
-  deriving (Eq, Show, Ord)
+applyType :: (Alternative m, MonadError [TypeError] m) => LispType -> LispType -> m LispType
+applyType (FunctionType i o) a = o <$ unifyType i a
+applyType (UnionType f1 f2) a  = applyType f1 a <|> applyType f2 a
+applyType a b                  = throwError [CannotApply a b]
 
-type Substition = Map TypeVariable Type
+applyWithArgs ::
+     (MonadError [TypeError] m, Alternative m)
+  => LispType
+  -> [LispType]
+  -> m LispType
+applyWithArgs t []     = pure t
+applyWithArgs t (a:as) = applyType t a >>= \t' -> applyWithArgs t' as
 
-newtype Environment = Environment (Map TypeVariable TypeScheme)
-  deriving (Eq,Show,Semigroup,Monoid)
-
-class Substitutable s where
-    freeTypes :: s -> Set TypeVariable
-    applySub :: Substition -> s -> s
-
-instance Substitutable Type where
-    freeTypes (TVar t)        = S.singleton t
-    freeTypes (TAtom _)       = S.empty
-    freeTypes (TFunction a b) = S.union (freeTypes a) (freeTypes b)
-    applySub s (TVar t)        = fromMaybe (TVar t) (M.lookup t s)
-    applySub _ (TAtom a)       = TAtom a
-    applySub s (TFunction a b) = TFunction (applySub s a) (applySub s b)
-
-instance Substitutable TypeScheme where
-    freeTypes (TypeScheme as t) = freeTypes t S.\\ as
-    applySub s (TypeScheme as t) = TypeScheme as $ applySub (foldr M.delete s as) t
-
-instance Substitutable Environment where
-    freeTypes (Environment m) = foldMap freeTypes m
-    applySub s (Environment m) = Environment (applySub s <$> m)
-
-removeFromEnvironment :: TypeVariable -> Environment -> Environment
-removeFromEnvironment x (Environment m) = Environment $ M.delete x m
-
-generalise :: Environment -> Type -> TypeScheme
-generalise e t = TypeScheme (freeTypes t S.\\ freeTypes e) t
-
-instantiate :: MonadFreshIdent m => TypeScheme -> m Type
-instantiate (TypeScheme as t) =
-    (\as' -> applySub (M.fromList as') t) <$>
-    mapM (\a -> (a, ) . TVar <$> freshIdent) (S.toList as)
-
-unification =
-    let isVar (TVar _) = True
-        isVar _        = False
-        rule1 = map (\(t,x) -> if isVar t then (x,t) else (t,x))
-        rule2 :: [(Type,Type)] -> [(Type,Type)]
-        rule2 = filter (uncurry (/=))
-     in undefined
-
-data TypeExpresion
-    = Type Type
-    | TEApp TypeExpresion
-            TypeExpresion
-    | TELambda TypeExpresion
-               TypeExpresion
-      deriving (Eq,Show)
+unifyType :: (Alternative m, MonadError [TypeError] m) => LispType -> LispType -> m LispType
+unifyType AnyType a = pure a
+unifyType a AnyType = pure a
+unifyType (AtomType a) (AtomType b)
+  | a == b = pure $ AtomType a
+  | otherwise = throwError [CannotUnify (AtomType a) (AtomType b)]
+unifyType (UnionType a b) c = unifyType a c <|> unifyType b c
+unifyType a (UnionType b c) = unifyType a b <|> unifyType a c
+unifyType (FunctionType ia oa) (FunctionType ib ob) =
+  FunctionType <$> (unifyType ia ib) <*> (unifyType oa ob)
+unifyType a b = throwError [CannotUnify a b]
