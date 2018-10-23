@@ -1,20 +1,20 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RecordWildCards  #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module App.Eval where
 
-import           Lisp.Eval
-import           Lisp.Print
-import           Lisp.Read
-import           Lisp.Types
-import           Types.Errors
-import           Types.State
+import Lisp.Eval
+import Lisp.Print
+import Lisp.Read
+import Lisp.Types
+import Types.Errors
+import Types.State
 
-import           Control.Monad.Except
-import           Control.Monad.Reader
-import           Control.Monad.State
-import qualified Data.Text.IO         as T
-import           Options.Applicative
+import Control.Monad.Except
+import Control.Monad.Reader
+import Control.Monad.State
+import qualified Data.Text.IO as T
+import Options.Applicative
 
 data EvalAppOptions = EvalAppOptions
     { evalFilesToLoad :: [FilePath]
@@ -39,8 +39,8 @@ evalFile lispState fp =
         builtinFunctions
 
 runEvalApp :: EvalAppOptions -> IO ()
-runEvalApp EvalAppOptions{..} = do
-  eRes <- runExceptT $ foldM evalFile mempty evalFilesToLoad
-  case eRes of
-    Right _ -> return ()
-    Left e  -> putStrLn "There has been an error" >> print e
+runEvalApp EvalAppOptions {..} = do
+    eRes <- runExceptT $ foldM evalFile mempty evalFilesToLoad
+    case eRes of
+        Right _ -> return ()
+        Left e -> putStrLn "There has been an error" >> print e

@@ -1,27 +1,27 @@
-{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module App.Compile where
 
-import           Lisp.Read
-import           Types.Errors
-import           Types.SExpr
-import           Wasm.Eval
+import Lisp.Read
+import Types.Errors
+import Types.SExpr
+import Wasm.Eval
 
-import           Control.Monad.Except
-import           Data.List            (intercalate)
-import qualified Data.Text            as T
-import qualified Data.Text.IO         as T
-import           Options.Applicative
-import           Shelly               (run_, shelly)
-import           System.FilePath
+import Control.Monad.Except
+import Data.List (intercalate)
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
+import Options.Applicative
+import Shelly (run_, shelly)
+import System.FilePath
 
 data CompileAppOptions = CompileAppOptions
-    { compileInputFiles  :: [FilePath]
+    { compileInputFiles :: [FilePath]
     , compileOutputFiles :: FilePath
-    , compileToWasm      :: Bool
-    } deriving (Eq,Show)
+    , compileToWasm :: Bool
+    } deriving (Eq, Show)
 
 parseCompileAppOptions :: Parser CompileAppOptions
 parseCompileAppOptions =
@@ -34,7 +34,8 @@ parseCompileAppOptions =
         (short 'w' <> long "compile-wasm" <>
          help "Compile the output wat file to wasm")
 
-makeSingleWasm :: (MonadError EvalError m, MonadIO m) => FilePath -> [SExpr] -> m ()
+makeSingleWasm ::
+       (MonadError EvalError m, MonadIO m) => FilePath -> [SExpr] -> m ()
 makeSingleWasm ofile sexprs = do
     let ss = init sexprs
         s = last sexprs
@@ -70,6 +71,8 @@ runCompileApp CompileAppOptions {..} = do
     case eRes of
         Right _ ->
             when compileToWasm $ do
-                putStrLn $ "Compiling " <> compileOutputFiles <> " to " <> (dropExtension compileOutputFiles <.> "wasm")
+                putStrLn $
+                    "Compiling " <> compileOutputFiles <> " to " <>
+                    (dropExtension compileOutputFiles <.> "wasm")
                 shelly $ run_ "wat2wasm" [T.pack compileOutputFiles]
         Left e -> putStrLn "There has been an error" >> print e

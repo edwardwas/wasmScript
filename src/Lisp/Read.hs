@@ -1,21 +1,21 @@
-{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Lisp.Read
     ( loadSExpr
     ) where
 
-import           Lisp.Types
-import           Types.Errors
-import           Types.SExpr
+import Lisp.Types
+import Types.Errors
+import Types.SExpr
 
-import           Control.Monad.Except
-import           Data.Bifunctor             (first)
-import           Data.Text                  (Text)
-import qualified Data.Text                  as T
-import           Data.Void
-import           Text.Megaparsec
-import           Text.Megaparsec.Char
+import Control.Monad.Except
+import Data.Bifunctor (first)
+import Data.Text (Text)
+import qualified Data.Text as T
+import Data.Void
+import Text.Megaparsec
+import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
 type Parser = ParsecT Void Text (Either EvalError)
@@ -57,13 +57,15 @@ parseSExpr :: Parser SExpr
 parseSExpr =
     lexer $
     choice $
-        [ Atom <$> parseAtom
-        , between (lexer $ char '(') (lexer $ char ')') (consList <$> many parseSExpr)
-        ]
+    [ Atom <$> parseAtom
+    , between
+          (lexer $ char '(')
+          (lexer $ char ')')
+          (consList <$> many parseSExpr)
+    ]
 
 loadSExpr :: MonadError EvalError m => Text -> m [SExpr]
 loadSExpr t =
     case join (first ParseError <$> runParserT (many parseSExpr) "" t) of
         Right x -> return x
-        Left e  -> throwError e
-
+        Left e -> throwError e

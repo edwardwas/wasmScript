@@ -76,27 +76,27 @@ evalLisp ::
     => SExpr
     -> m SExpr
 evalLisp (Atom (Symbol s)) = do
-  mVal <- gets $ \ls -> getLispVal ls s
-  case mVal of
-    Just x  -> return x
-    Nothing -> throwError $ CouldNotFindVal s
+    mVal <- gets $ \ls -> getLispVal ls s
+    case mVal of
+        Just x  -> return x
+        Nothing -> throwError $ CouldNotFindVal s
 evalLisp (Atom a) = pure (Atom a)
 evalLisp (SFunction "def" args) =
-  case expandConsCells args of
-      [Atom (Symbol n), val] -> do
-          v <- evalLisp val
-          lispVals %= (M.singleton n v :)
-          return $ Atom $ SNil
-      _ -> throwError $ UnknownTypeError ""
+    case expandConsCells args of
+        [Atom (Symbol n), val] -> do
+            v <- evalLisp val
+            lispVals %= (M.singleton n v :)
+            return $ Atom $ SNil
+        _ -> throwError $ UnknownTypeError ""
 evalLisp (SFunction name args) = do
     bf <- ask
     args' <- mapM evalLisp $ expandConsCells args
-    argsT :: [LispType] <- runReaderT (mapM typeOfSExpr args') $
-            makeTypesFromFuctions bf
+    argsT :: [LispType] <-
+        runReaderT (mapM typeOfSExpr args') $ makeTypesFromFuctions bf
     case builtinAccess bf name of
         Just m ->
             case filter (\(t, _) -> canApplWithArgs t argsT) $ M.toList m of
-                [(_, (LispEvalFunc f))] -> f $ expandConsCells args
+                [(_, (LispEvalFunc f))] -> f args'
                 _ ->
                     throwError $
                     UnknownTypeError
@@ -114,12 +114,13 @@ typeOfSExprHelper (Atom (Symbol s)) = do
         Just sexpr -> typeOfSExprHelper sexpr
         Nothing    -> throwError $ CouldNotFindVal s
 typeOfSExprHelper (Atom a) = pure $ AtomType $ typeOfAtom a
-typeOfSExprHelper (SFunction "def" args) = case expandConsCells args of
-  [Atom (Symbol n), val] -> do
-      _ <- typeOfSExprHelper val
-      lispVals %= (M.singleton n val :)
-      return $ AtomType NilT
-  _ -> throwError $ UnknownTypeError "Arity mismatch"
+typeOfSExprHelper (SFunction "def" args) =
+    case expandConsCells args of
+        [Atom (Symbol n), val] -> do
+            _ <- typeOfSExprHelper val
+            lispVals %= (M.singleton n val :)
+            return $ AtomType NilT
+        _ -> throwError $ UnknownTypeError "Arity mismatch"
 typeOfSExprHelper (SFunction name args) = do
     builtinTypes <- ask
     case builtinAccess builtinTypes name of
@@ -129,7 +130,10 @@ typeOfSExprHelper (SFunction name args) = do
         Nothing -> undefined
 
 typeOfSExpr ::
-       (MonadReader (Builtin LispType) m, MonadError EvalError m, MonadState LispState m)
+       ( MonadReader (Builtin LispType) m
+       , MonadError EvalError m
+       , MonadState LispState m
+       )
     => SExpr
     -> m LispType
 typeOfSExpr sexpr = do

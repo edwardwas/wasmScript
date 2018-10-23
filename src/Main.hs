@@ -2,11 +2,11 @@
 
 module Main where
 
-import           App.Compile
-import           App.Eval
-import           App.Repl
+import App.Compile
+import App.Eval
+import App.Repl
 
-import           Options.Applicative
+import Options.Applicative
 
 data AppOptions
     = ReplApp ReplAppOptions
