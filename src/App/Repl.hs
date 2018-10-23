@@ -11,6 +11,7 @@ import           Types.Errors
 import           Types.State
 
 import           Control.Monad.Except
+import           Control.Monad.Reader
 import           Control.Monad.State
 import           Data.Text               (Text)
 import qualified Data.Text               as T
@@ -34,7 +35,7 @@ parseReplAppOptions =
 singleRepl :: Monad m => LispState -> Text -> m ([Text],LispState)
 singleRepl lispState inputText = do
     resultSExpr <-
-        runExceptT (runStateT (loadSExpr inputText >>= mapM evalLisp) lispState)
+        runExceptT (runReaderT (runStateT (loadSExpr inputText >>= mapM evalLisp) lispState) builtinFunctions)
     return $
         case resultSExpr of
             Right (sexprs, newLispState) ->
@@ -59,9 +60,9 @@ loadFileLispState ::
     -> FilePath
     -> m LispState
 loadFileLispState lispState fp =
-    execStateT
+    runReaderT (execStateT
         (liftIO (T.readFile fp) >>= loadSExpr >>= mapM evalLisp)
-        lispState
+        lispState) builtinFunctions
 
 runReplApp :: ReplAppOptions -> IO ()
 runReplApp ReplAppOptions {..} = do

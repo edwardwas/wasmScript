@@ -11,6 +11,7 @@ import           Types.Errors
 import           Types.State
 
 import           Control.Monad.Except
+import           Control.Monad.Reader
 import           Control.Monad.State
 import qualified Data.Text.IO         as T
 import           Options.Applicative
@@ -30,10 +31,12 @@ evalFile ::
     -> FilePath
     -> m LispState
 evalFile lispState fp =
-    execStateT
-        (liftIO (T.readFile fp) >>= loadSExpr >>= mapM evalLisp >>=
-         liftIO . mapM (T.putStrLn . printSExpr))
-        lispState
+    runReaderT
+        (execStateT
+             (liftIO (T.readFile fp) >>= loadSExpr >>= mapM evalLisp >>=
+              liftIO . mapM (T.putStrLn . printSExpr))
+             lispState)
+        builtinFunctions
 
 runEvalApp :: EvalAppOptions -> IO ()
 runEvalApp EvalAppOptions{..} = do

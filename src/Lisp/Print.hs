@@ -33,6 +33,6 @@ printAtomType NilT     = "()"
 
 printType :: LispType -> Text
 printType (AtomType a)       = printAtomType a
-printType (UnionType a b)    = printType a <> " U " <> printType b
+printType (UnionType s)    = T.intercalate " U " $ (printType <$> S.toList s)
 printType (FunctionType a b) = printType a <> " -> " <> printType b
 printType AnyType            = "ANY"

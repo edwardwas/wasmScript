@@ -19,6 +19,7 @@ import           Control.Lens             hiding (Context)
 import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Control.Monad.State
+import           Data.Either
 import           Data.Functor.Foldable
 import           Data.Functor.Foldable.TH
 import           Data.List.NonEmpty       (NonEmpty)
@@ -41,14 +42,10 @@ typeOfAtom (SNil)     = NilT
 
 data LispType
   = AtomType AtomType
-  | UnionType LispType
-              LispType
+  | UnionType (Set LispType)
   | FunctionType LispType LispType
   | AnyType
   deriving (Eq, Show,Ord)
-
-unionTypeFromList :: NonEmpty LispType -> LispType
-unionTypeFromList = foldr1 UnionType
 
 floatT = AtomType FloatT
 integerT = AtomType IntegerT
@@ -61,10 +58,17 @@ data TypeError
                 LispType
     deriving (Eq,Show)
 
-applyType :: (Alternative m, MonadError [TypeError] m) => LispType -> LispType -> m LispType
+applyType ::
+       (Alternative m, MonadError [TypeError] m)
+    => LispType
+    -> LispType
+    -> m LispType
 applyType (FunctionType i o) a = o <$ unifyType i a
-applyType (UnionType f1 f2) a  = applyType f1 a <|> applyType f2 a
-applyType a b                  = throwError [CannotApply a b]
+applyType (UnionType ts) a =
+    foldr (<|>) empty $ map (\t -> applyType t a) $ S.toList ts
+applyType a (UnionType ts) =
+    foldr (<|>) empty $ map (\t -> applyType t a) $ S.toList ts
+applyType a b = throwError [CannotApply a b]
 
 applyWithArgs ::
      (MonadError [TypeError] m, Alternative m)
@@ -74,14 +78,20 @@ applyWithArgs ::
 applyWithArgs t []     = pure t
 applyWithArgs t (a:as) = applyType t a >>= \t' -> applyWithArgs t' as
 
+canUnify :: LispType -> LispType -> Bool
+canUnify a b = isRight $ runExcept (unifyType a b)
+
+canApplWithArgs :: LispType -> [LispType] -> Bool
+canApplWithArgs a as = isRight $ runExcept (applyWithArgs a as)
+
 unifyType :: (Alternative m, MonadError [TypeError] m) => LispType -> LispType -> m LispType
 unifyType AnyType a = pure a
 unifyType a AnyType = pure a
 unifyType (AtomType a) (AtomType b)
   | a == b = pure $ AtomType a
   | otherwise = throwError [CannotUnify (AtomType a) (AtomType b)]
-unifyType (UnionType a b) c = unifyType a c <|> unifyType b c
-unifyType a (UnionType b c) = unifyType a b <|> unifyType a c
+unifyType (UnionType as) b = foldr (<|>) empty $ map (\a -> unifyType a b) $ S.toList as
+unifyType a (UnionType bs) = foldr (<|>) empty $ map (\b -> unifyType a b) $ S.toList bs
 unifyType (FunctionType ia oa) (FunctionType ib ob) =
   FunctionType <$> (unifyType ia ib) <*> (unifyType oa ob)
 unifyType a b = throwError [CannotUnify a b]
